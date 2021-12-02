@@ -81,7 +81,7 @@ Example:
             all_picks, n_threshold, err_threshold, central='mean')
     # convert picks to seconds
     selected_picks = PN.convert_picks_to_sec(
-            selected_picks, BPMF.cfg.sampling_rate)
+            selected_picks, sampling_rate)
 
     # plot the results
     # first, I assume that you have stored `data` in an obspy.Stream instance,
