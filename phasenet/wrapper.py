@@ -73,7 +73,7 @@ def run_pred(input_length,
     """
     data_reader = DataReader_pred(
         format='hdf5',
-        data_dir=data_path,
+        #data_dir=data_path,
         data_list='', # not used with hdf5 format
         hdf5_file=data_file,
         hdf5_group=hdf5_group,
@@ -82,6 +82,8 @@ def run_pred(input_length,
             data_reader, model_dir=model_path, log_dir=log_dir,
             batch_size=batch_size, input_length=input_length,
             min_p_prob=threshold_P, min_s_prob=threshold_S)
+    # PhaseNet does not take care of closing the hdf5 file
+    data_reader.h5.close()
     return PhaseNet_proba, PhaseNet_picks
 
 
@@ -174,19 +176,19 @@ def automatic_picking(data,
         os.mkdir(PN_base)
     # clean up input/output directories if necessary
     root_PN_inputs = os.path.join(PN_base, PN_dataset_name)
-    path_waveforms = os.path.join(root_PN_inputs, 'waveform_pred')
-    if os.path.isdir(path_waveforms):
-        # clean up the directory
-        for file_ in glob.glob(os.path.join(path_waveforms, '*')):
-            os.remove(file_)
-    else:
-        try:
-            os.mkdir(path_waveforms)
-        except:
-            print('Have you created the root folder where you want '
-                    'PhaseNet inputs to be stored? It should be: {}'.
-                    format(root_PN_inputs))
-            return
+    #path_waveforms = os.path.join(root_PN_inputs, 'waveform_pred')
+    #if os.path.isdir(path_waveforms):
+    #    # clean up the directory
+    #    for file_ in glob.glob(os.path.join(path_waveforms, '*')):
+    #        os.remove(file_)
+    #else:
+    #    try:
+    #        os.mkdir(path_waveforms)
+    #    except:
+    #        print('Have you created the root folder where you want '
+    #                'PhaseNet inputs to be stored? It should be: {}'.
+    #                format(root_PN_inputs))
+    #        return
 
     # assume the data were provided in the shape
     # (n_events x n_stations x 3-comp x time_duration)
@@ -207,7 +209,7 @@ def automatic_picking(data,
     # call PhaseNet
     PhaseNet_proba, PhaseNet_picks = run_pred(
             input_length,
-            data_path=os.path.join(PN_base, PN_dataset_name, 'waveform_pred'),
+            #data_path=os.path.join(PN_base, PN_dataset_name, 'waveform_pred'),
             data_file=os.path.join(PN_base, PN_dataset_name, 'data.h5'),
             log_dir=os.path.join(PN_base, PN_dataset_name, 'log'),
             batch_size=mini_batch_size,

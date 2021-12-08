@@ -53,12 +53,12 @@ def pred_fn(data_reader, figure_dir=None, prob_dir=None, log_dir=None, **kwargs)
     args = AttrDict(kwargs)
     # ----------------------------------------------------------
     current_time = time.strftime("%y%m%d-%H%M%S")
-    if log_dir is None:
-        log_dir = os.path.join(args.log_dir, "pred", current_time)
-    if not os.path.exists(log_dir):
-        os.makedirs(log_dir)
-    logging.info("Pred log: %s" % log_dir)
-    logging.info("Dataset size: {}".format(data_reader.num_data))
+    #if log_dir is None:
+    #    log_dir = os.path.join(args.log_dir, "pred", current_time)
+    #if not os.path.exists(log_dir):
+    #    os.makedirs(log_dir)
+    #logging.info("Pred log: %s" % log_dir)
+    #logging.info("Dataset size: {}".format(data_reader.num_data))
 
     with tf.compat.v1.name_scope('Input_Batch'):
         if args.format == "mseed_array":
@@ -69,15 +69,15 @@ def pred_fn(data_reader, figure_dir=None, prob_dir=None, log_dir=None, **kwargs)
         batch = tf.compat.v1.data.make_one_shot_iterator(dataset).get_next()
 
     config = ModelConfig(X_shape=data_reader.X_shape)
-    with open(os.path.join(log_dir, 'config.log'), 'w') as fp:
-        fp.write('\n'.join("%s: %s" % item for item in vars(config).items()))
+    #with open(os.path.join(log_dir, 'config.log'), 'w') as fp:
+    #    fp.write('\n'.join("%s: %s" % item for item in vars(config).items()))
 
     model = UNet(config=config, input_batch=batch, mode="pred")
     # model = UNet(config=config, mode="pred")
     sess_config = tf.compat.v1.ConfigProto()
     sess_config.gpu_options.allow_growth = True
     # sess_config.log_device_placement = False
-
+    
     with tf.compat.v1.Session(config=sess_config) as sess:
 
         saver = tf.compat.v1.train.Saver(tf.compat.v1.global_variables(), max_to_keep=5)
@@ -85,7 +85,7 @@ def pred_fn(data_reader, figure_dir=None, prob_dir=None, log_dir=None, **kwargs)
         sess.run(init)
 
         latest_check_point = tf.train.latest_checkpoint(args.model_dir)
-        logging.info(f"restoring model {latest_check_point}")
+        #logging.info(f"restoring model {latest_check_point}")
         saver.restore(sess, latest_check_point)
 
         predictions, fnames, picks = [], [], []
@@ -115,20 +115,22 @@ def pred_fn(data_reader, figure_dir=None, prob_dir=None, log_dir=None, **kwargs)
             predictions.extend(pred_batch)
             fnames.extend(fname_batch)
 
-        # convert lists to numpy arrays
-        predictions = np.float32(predictions).squeeze()
-        fnames = list(np.asarray(fnames).astype('U'))
+        tf.compat.v1.get_variable_scope().reuse_variables()
 
-        # order the outputs
-        ordered_proba = np.zeros_like(predictions, dtype=np.float32)
-        ordered_picks = np.zeros((data_reader.num_data, 2, 2), dtype=object)
-        for i in range(data_reader.num_data):
-            sample_name = f'sample{i}'
-            idx = fnames.index(sample_name)
-            ordered_proba[i, ...] = predictions[idx, ...].squeeze()
-            ordered_picks[i, 0, 0] = np.array(picks[idx].p_idx).squeeze()
-            ordered_picks[i, 0, 1] = np.array(picks[idx].p_prob).squeeze()
-            ordered_picks[i, 1, 0] = np.array(picks[idx].s_idx).squeeze()
-            ordered_picks[i, 1, 1] = np.array(picks[idx].s_prob).squeeze()
+    # convert lists to numpy arrays
+    predictions = np.float32(predictions).squeeze()
+    fnames = list(np.asarray(fnames).astype('U'))
+
+    # order the outputs
+    ordered_proba = np.zeros_like(predictions, dtype=np.float32)
+    ordered_picks = np.zeros((data_reader.num_data, 2, 2), dtype=object)
+    for i in range(data_reader.num_data):
+        sample_name = f'sample{i}'
+        idx = fnames.index(sample_name)
+        ordered_proba[i, ...] = predictions[idx, ...].squeeze()
+        ordered_picks[i, 0, 0] = np.array(picks[idx].p_idx).squeeze()
+        ordered_picks[i, 0, 1] = np.array(picks[idx].p_prob).squeeze()
+        ordered_picks[i, 1, 0] = np.array(picks[idx].s_idx).squeeze()
+        ordered_picks[i, 1, 1] = np.array(picks[idx].s_prob).squeeze()
     return ordered_proba, ordered_picks
 
