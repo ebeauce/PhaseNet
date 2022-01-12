@@ -176,19 +176,9 @@ def automatic_picking(data,
         os.mkdir(PN_base)
     # clean up input/output directories if necessary
     root_PN_inputs = os.path.join(PN_base, PN_dataset_name)
-    #path_waveforms = os.path.join(root_PN_inputs, 'waveform_pred')
-    #if os.path.isdir(path_waveforms):
-    #    # clean up the directory
-    #    for file_ in glob.glob(os.path.join(path_waveforms, '*')):
-    #        os.remove(file_)
-    #else:
-    #    try:
-    #        os.mkdir(path_waveforms)
-    #    except:
-    #        print('Have you created the root folder where you want '
-    #                'PhaseNet inputs to be stored? It should be: {}'.
-    #                format(root_PN_inputs))
-    #        return
+    if not os.path.isdir(root_PN_inputs):
+        print(f'Creating the experiment root folder at {root_PN_inputs}')
+        os.mkdir(root_PN_inputs)
 
     # assume the data were provided in the shape
     # (n_events x n_stations x 3-comp x time_duration)
