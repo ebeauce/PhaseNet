@@ -168,7 +168,17 @@ def automatic_picking(data,
 
     Returns
     ---------
-
+    PhaseNet_probas: (n_events, n_stations, n_samples, 2) numpy.narray, float
+        Probabilities of P- and S-wave arrival on the continuous time axis.
+        PhaseNet_probas[..., 0] is the P-wave probability.  
+        PhaseNet_probas[..., 1] is the S-wave probability.
+    PhaseNet_picks: dictionary
+        Dictionary with four fields: 'P_proba', 'P_picks',
+        'S_proba', 'S_picks'. Each of these fields contains
+        another dictionary with one entry per station. Finally,
+        the content of each PhaseNet_picks[field][station] is an
+        (n_events, numpy.ndarrays) array of arrays with all picks and
+        associated probabilities for each event.
     """
 
     if not os.path.isdir(PN_base):
