@@ -113,4 +113,6 @@ setup(
         "Topic :: Software Development :: Libraries :: Python Modules",
     ],
     cmdclass={"upload": UploadCommand},
+    include_package_data=True,
+    package_data={'': ['model/190703-214543/*']}
 )

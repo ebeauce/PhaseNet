@@ -7,6 +7,10 @@ import glob
 from .data_reader import DataReader_pred
 from .predict_fn import pred_fn
 
+import pkg_resources
+
+model_dir = pkg_resources.resource_filename('phasenet', os.path.join('model', '190703-214543'))
+
 script_path = os.path.dirname(os.path.realpath(__file__))
 
 def format_data(data, root_PN_inputs='.', filename='data.h5'):
@@ -34,7 +38,7 @@ def format_data(data, root_PN_inputs='.', filename='data.h5'):
             f['data'].create_dataset(f'sample{i}', data=three_comp_data)
 
 def run_pred(input_length,
-             model_path=f'/home/ebeauce/PhaseNet/model/190703-214543',
+             model_path=model_dir,
              data_path='./dataset/waveform_pred/',
              log_dir='./dataset/log/',
              data_file='./dataset/data.h5',
@@ -209,7 +213,6 @@ def automatic_picking(data,
     # call PhaseNet
     PhaseNet_proba, PhaseNet_picks = run_pred(
             input_length,
-            #data_path=os.path.join(PN_base, PN_dataset_name, 'waveform_pred'),
             data_file=os.path.join(PN_base, PN_dataset_name, 'data.h5'),
             log_dir=os.path.join(PN_base, PN_dataset_name, 'log'),
             batch_size=mini_batch_size,
