@@ -74,8 +74,12 @@ def pred_fn(data_reader, figure_dir=None, prob_dir=None, log_dir=None, **kwargs)
 
     model = UNet(config=config, input_batch=batch, mode="pred")
     # model = UNet(config=config, mode="pred")
-    sess_config = tf.compat.v1.ConfigProto()
-    sess_config.gpu_options.allow_growth = True
+    sess_config = tf.compat.v1.ConfigProto(
+            inter_op_parallelism_threads=kwargs.get(
+                'inter_op_parallellism_threads', 0),
+            intra_op_parallelism_threads=kwargs.get(
+                'intra_op_parallelism_threads', 0))
+    #sess_config.gpu_options.allow_growth = True
     # sess_config.log_device_placement = False
     
     with tf.compat.v1.Session(config=sess_config) as sess:

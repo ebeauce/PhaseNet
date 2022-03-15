@@ -3,6 +3,7 @@ import os
 import numpy as np
 import h5py as h5
 import glob
+import shutil
 
 from .data_reader import DataReader_pred
 from .predict_fn import pred_fn
@@ -13,10 +14,10 @@ model_dir = pkg_resources.resource_filename('phasenet', os.path.join('model', '1
 
 script_path = os.path.dirname(os.path.realpath(__file__))
 
-def format_data(data, root_PN_inputs='.', filename='data.h5'):
-    """Format data for PhasetNet.  
+def format_data_hdf5(data, root_PN_inputs='.', filename='data.h5'):
+    """Format data for PhasetNet (hdf5).  
 
-    Save the data array in npz files such that PhaseNet can process it.
+    Save the data array in an hdf5 file such that PhaseNet can process it.
 
     Parameters
     -------------
@@ -37,19 +38,39 @@ def format_data(data, root_PN_inputs='.', filename='data.h5'):
             three_comp_data = np.swapaxes(data[i, ...], 0, 1)
             f['data'].create_dataset(f'sample{i}', data=three_comp_data)
 
+def format_data_ram(data):
+    """Format data for PhasetNet.  
+
+    Build the data dictionary for PhaseNet.
+
+    Parameters
+    -------------
+    data: (n_stations, 3, n_samples) nd.array
+        Numpy array with the continuous 3-component seismic data
+        on which we want to pick the P- and S-wave arrivals.
+    """
+    data_pn = {}
+    for i in range(data.shape[0]):
+        data_pn[f'sample{i}'] = np.swapaxes(data[i, ...], 0, 1)
+    return data_pn
+
+
 def run_pred(input_length,
              model_path=model_dir,
+             data=None,
              data_path='./dataset/waveform_pred/',
              log_dir='./dataset/log/',
              data_file='./dataset/data.h5',
-             hdf5_group='data',
+             format='hdf5',
              amplitude=False,
              batch_size=1,
              threshold_P=0.6,
-             threshold_S=0.6):
+             threshold_S=0.6,
+             **kwargs):
     """Run PhaseNet and fetch its raw output: the P and S probabilities.
 
-    Results are stored at the user-defined location `output_filename`.
+    Results are stored at the user-defined location `output_filename`. Extra
+    kwargs are passed to `phasenet.predict_fn.pred_fn`.
 
     Parameters
     ------------
@@ -75,75 +96,40 @@ def run_pred(input_length,
         S-wave identification threshold. When PhaseNet's raw output
         (proba) exceeds `threshold_S`, a detection is triggered.
     """
-    data_reader = DataReader_pred(
-        format='hdf5',
-        #data_dir=data_path,
-        data_list='', # not used with hdf5 format
-        hdf5_file=data_file,
-        hdf5_group=hdf5_group,
-        amplitude=amplitude)
+    if format == 'hdf5':
+        data_reader = DataReader_pred(
+            format='hdf5',
+            data_list='', # not used with hdf5 format
+            hdf5_file=data_file,
+            hdf5_group='data',
+            amplitude=amplitude)
+    elif format == 'ram':
+        data_reader = DataReader_pred(
+            format='ram',
+            data=data,
+            amplitude=amplitude)
     PhaseNet_proba, PhaseNet_picks = pred_fn(
             data_reader, model_dir=model_path, log_dir=log_dir,
             batch_size=batch_size, input_length=input_length,
-            min_p_prob=threshold_P, min_s_prob=threshold_S)
-    # PhaseNet does not take care of closing the hdf5 file
-    data_reader.h5.close()
+            min_p_prob=threshold_P, min_s_prob=threshold_S,
+            **kwargs)
+    if format == 'hdf5':
+        # PhaseNet does not take care of closing the hdf5 file
+        data_reader.h5.close()
     return PhaseNet_proba, PhaseNet_picks
-
-
-def load_PN_output(path_to_file, return_picks=False):
-    """Read PhaseNet output.
-
-    Parameters
-    -------------
-    path_to_file: string
-        Path to the file storing the output.
-    return_picks: boolean, default to False
-        If `True`, this function returns not only the P- and S-wave
-        arrival probabilities, but also the picks. The picks are obtained
-        by postprocessing PhaseNet's raw ouput.
-
-    Returns
-    ----------
-    PhaseNet_proba: (n_events, n_stations, input_length, 2) nd.array
-        Numpy array with P- and S-wave arrival probabilities given as time
-        series of same length than the input seismograms.  
-        `PhaseNet_proba[..., 0]` is the P-wave probability.  
-        `PhaseNet_proba[..., 1]` is the S-wave probability.
-    PhaseNet_picks: (n_events, n_stations, 2, 2) nd.array of arrays (!), optional
-        `PhaseNet_picks[n, s, 0, 0]` is the array of all P-wave picks, in samples  
-        `PhaseNet_picks[n, s, 0, 1]` is the array of all P-wave pick proba
-        (it is a measure of how reliable the picks are)  
-        `PhaseNet_picks[n, s, 1, 0]` is the array of all S-wave picks, in samples  
-        `PhaseNet_picks[n, s, 1, 1]` is the array of all S-wave pick proba
-        (it is a measure of how reliable the picks are)  
-    """
-    PhaseNet_output = dict(np.load(path_to_file, allow_pickle=True))
-    PhaseNet_output['filename'] = PhaseNet_output['filename'].astype('U').tolist()
-    n_data_points = PhaseNet_output['probabilities'].shape[0]
-    PhaseNet_proba = np.zeros_like(PhaseNet_output['probabilities'])
-    if return_picks:
-        PhaseNet_picks = np.zeros_like(PhaseNet_output['picks'])
-    for i in range(n_data_points):
-        ordered_idx = PhaseNet_output['filename'].index(f'sample{i}.npz')
-        PhaseNet_proba[i, ...] = \
-                PhaseNet_output['probabilities'][ordered_idx, ...]
-        PhaseNet_picks[i, ...] = \
-                PhaseNet_output['picks'][ordered_idx, ...]
-    if return_picks:
-        return PhaseNet_proba, PhaseNet_picks
-    else:
-        return PhaseNet_proba
 
 def automatic_picking(data,
                       station_names,
-                      PN_base,
-                      PN_dataset_name,
+                      PN_base=None,
+                      PN_dataset_name=None,
+                      format='ram',
                       mini_batch_size=126,
                       threshold_P=0.6,
-                      threshold_S=0.6):
+                      threshold_S=0.6,
+                      **kwargs):
     """Wrapper function to call PhaseNet from a python script.  
 
+    Extra kwargs are passed to `phasenet.predict_fn.pred_fn`.
 
     Parameters
     -----------
@@ -154,12 +140,12 @@ def automatic_picking(data,
     station_names: list or array of strings
         Name of the `n_stations` stations of the array, in the same
         order as given in `data`.
-    PN_base: string
+    PN_base: string, default to None
         Path to the root folder where PhaseNet formatted data will
-        be stored.
-    PN_dataset_name: string
+        be stored. Required if `format='ram'`.
+    PN_dataset_name: string, default to None
         Name of the folder, inside `PN_base`, where the formatted data
-        of a given experiment will be stored.
+        of a given experiment will be stored. Required if `format='ram'`.
     mini_batch_size: int, default to 126
         Number of 3-component seismograms processed by PhaseNet
         at once. This should to take into account the machine's RAM.
@@ -184,15 +170,18 @@ def automatic_picking(data,
         (n_events, numpy.ndarrays) array of arrays with all picks and
         associated probabilities for each event.
     """
-
-    if not os.path.isdir(PN_base):
-        print(f'Creating the formatted data root folder at {PN_base}')
-        os.mkdir(PN_base)
-    # clean up input/output directories if necessary
-    root_PN_inputs = os.path.join(PN_base, PN_dataset_name)
-    if not os.path.isdir(root_PN_inputs):
-        print(f'Creating the experiment root folder at {root_PN_inputs}')
-        os.mkdir(root_PN_inputs)
+    if format == 'hdf5':
+        if not os.path.isdir(PN_base):
+            print(f'Creating the formatted data root folder at {PN_base}')
+            os.mkdir(PN_base)
+        # clean up input/output directories if necessary
+        root_PN_inputs = os.path.join(PN_base, PN_dataset_name)
+        if not os.path.isdir(root_PN_inputs):
+            print(f'Creating the experiment root folder at {root_PN_inputs}')
+            os.mkdir(root_PN_inputs)
+    else:
+        PN_base = ''
+        root_PN_inputs = ''
 
     # assume the data were provided in the shape
     # (n_events x n_stations x 3-comp x time_duration)
@@ -209,15 +198,22 @@ def automatic_picking(data,
     minibatch_size = min(mini_batch_size, batch_size)
 
     # generate the input files necessary for PhaseNet
-    format_data(data, root_PN_inputs=root_PN_inputs)
+    if format == 'hdf5':
+        format_data_hdf5(data, root_PN_inputs=root_PN_inputs)
+        data_pn = None
+    elif format == 'ram':
+        data_pn = format_data_ram(data)
     # call PhaseNet
     PhaseNet_proba, PhaseNet_picks = run_pred(
             input_length,
-            data_file=os.path.join(PN_base, PN_dataset_name, 'data.h5'),
-            log_dir=os.path.join(PN_base, PN_dataset_name, 'log'),
+            data_file=os.path.join(root_PN_inputs, 'data.h5'),
+            log_dir=os.path.join(root_PN_inputs, 'log'),
             batch_size=mini_batch_size,
             threshold_P=threshold_P,
-            threshold_S=threshold_S)
+            threshold_S=threshold_S,
+            format=format,
+            data=data_pn,
+            **kwargs)
     # the new PhaseNet_proba is an array of time series with [..., 0] = proba of P arrival
     # and [..., 1] = proba of S arrival (the original [..., 0] was simply 1 - Pp - Ps)
     PhaseNet_proba = PhaseNet_proba.reshape((n_events, n_stations, input_length, 3))[..., 1:]
@@ -237,6 +233,9 @@ def automatic_picking(data,
         picks['S_picks'][station_names[s]] = PhaseNet_picks[:, s, 1, 0]
         # (n_events, arrays): array of arrays with probabilities of all detected S-arrival picks 
         picks['S_proba'][station_names[s]] = PhaseNet_picks[:, s, 1, 1]
+    if format == 'hdf5':
+        # clean up when done
+        shutil.rmtree(root_PN_inputs)
     return PhaseNet_proba, picks
 
 

@@ -188,6 +188,13 @@ class DataReader():
                                           client_kwargs={'endpoint_url': kwargs["s3_url"]},
                                           use_ssl=kwargs["use_ssl"])
             self.num_data = 0
+        elif format == 'ram':
+            # data must also be provided
+            if 'data' not in kwargs:
+                raise('`data` must be provided when using format=`ram`.')
+            self.data = kwargs.get('data')
+            self.data_list = list(self.data.keys())
+            self.num_data = len(self.data_list)
         else:
             raise(f"{format} not support!")
 
@@ -232,6 +239,13 @@ class DataReader():
         # except:
         #     logging.error("Failed reading {}".format(fname))
         #     return None
+
+    def read_ram(self, trace_id):
+        """Data reader for small data sets in RAM.
+        """
+        meta = {}
+        meta['data'] = self.data[trace_id][:, np.newaxis, :]
+        return meta
 
     def read_hdf5(self, fname):
         data = self.h5_data[fname][()]
@@ -631,6 +645,8 @@ class DataReader_pred(DataReader):
             meta = self.read_mseed(os.path.join(self.data_dir, base_name))
         elif self.format == "hdf5":
             meta = self.read_hdf5(base_name)
+        elif self.format == 'ram':
+            meta = self.read_ram(base_name)
         return meta["data"].shape
 
     def adjust_missingchannels(self, data):
@@ -650,6 +666,8 @@ class DataReader_pred(DataReader):
             meta = self.read_mseed(os.path.join(self.data_dir, base_name))
         elif self.format == "hdf5":
             meta = self.read_hdf5(base_name)
+        elif self.format == 'ram':
+            meta = self.read_ram(base_name)
         else:
             raise(f"{self.format} does not support!")
         if meta == -1:

@@ -47,7 +47,7 @@ Example:
     #    run PhaseNet!
     # ------------------------
     PhaseNet_probas, PhaseNet_picks = PN.automatic_picking(
-        data, station_names, PN_base, PN_dataset_name,
+        data, station_names, PN_base=PN_base, PN_dataset_name=PN_dataset_name,
         mini_batch_size=mini_batch_size, threshold_P=threshold_P,
         threshold_S=threshold_S)
 
