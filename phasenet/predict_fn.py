@@ -1,30 +1,20 @@
 import argparse
-import logging
-import multiprocessing
+#import logging
 import os
-import pickle
 import time
 from functools import partial
 
 import h5py
 import numpy as np
-import pandas as pd
 import tensorflow as tf
 from tqdm import tqdm
 
 from .data_reader import DataReader_mseed_array, DataReader_pred
-from .model import ModelConfig, UNet
-from .postprocess import (
-    extract_amplitude,
-    extract_picks,
-    save_picks,
-    save_picks_json,
-    save_prob_h5,
-)
-from .visulization import plot_waveform
+from .model_pred import ModelConfig, UNet
+from .postprocess import extract_picks, extract_amplitude
 
 tf.compat.v1.disable_eager_execution()
-tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
+#tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
 class AttrDict(dict):
     def __init__(self, *args, **kwargs):
@@ -53,12 +43,6 @@ def pred_fn(data_reader, figure_dir=None, prob_dir=None, log_dir=None, **kwargs)
     args = AttrDict(kwargs)
     # ----------------------------------------------------------
     current_time = time.strftime("%y%m%d-%H%M%S")
-    #if log_dir is None:
-    #    log_dir = os.path.join(args.log_dir, "pred", current_time)
-    #if not os.path.exists(log_dir):
-    #    os.makedirs(log_dir)
-    #logging.info("Pred log: %s" % log_dir)
-    #logging.info("Dataset size: {}".format(data_reader.num_data))
 
     with tf.compat.v1.name_scope('Input_Batch'):
         if args.format == "mseed_array":
@@ -72,8 +56,6 @@ def pred_fn(data_reader, figure_dir=None, prob_dir=None, log_dir=None, **kwargs)
     #with open(os.path.join(log_dir, 'config.log'), 'w') as fp:
     #    fp.write('\n'.join("%s: %s" % item for item in vars(config).items()))
 
-    model = UNet(config=config, input_batch=batch, mode="pred")
-    # model = UNet(config=config, mode="pred")
     sess_config = tf.compat.v1.ConfigProto(
             inter_op_parallelism_threads=kwargs.get(
                 'inter_op_parallellism_threads', 0),
@@ -81,8 +63,10 @@ def pred_fn(data_reader, figure_dir=None, prob_dir=None, log_dir=None, **kwargs)
                 'intra_op_parallelism_threads', 0))
     #sess_config.gpu_options.allow_growth = True
     # sess_config.log_device_placement = False
-    
+ 
     with tf.compat.v1.Session(config=sess_config) as sess:
+
+        model = UNet(config=config, input_batch=batch)
 
         saver = tf.compat.v1.train.Saver(tf.compat.v1.global_variables(), max_to_keep=5)
         init = tf.compat.v1.global_variables_initializer()
@@ -119,7 +103,10 @@ def pred_fn(data_reader, figure_dir=None, prob_dir=None, log_dir=None, **kwargs)
             predictions.extend(pred_batch)
             fnames.extend(fname_batch)
 
-        tf.compat.v1.get_variable_scope().reuse_variables()
+        #tf.compat.v1.get_variable_scope().reuse_variables()
+    # reset graph to not keep on building on the same one
+    tf.compat.v1.reset_default_graph()
+
 
     # convert lists to numpy arrays
     predictions = np.float32(predictions).squeeze()
