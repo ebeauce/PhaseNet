@@ -2,5 +2,6 @@ tensorflow==2.3
 matplotlib
 pandas
 tqdm
-scipy
+scipy>=1.8
 obspy==1.2.2
+numpy>=1.22
