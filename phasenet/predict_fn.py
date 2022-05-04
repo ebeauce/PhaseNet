@@ -92,7 +92,9 @@ def pred_fn(data_reader, figure_dir=None, prob_dir=None, log_dir=None, **kwargs)
                     feed_dict={model.drop_rate: 0, model.is_training: False},
                 )
 
-            picks_ = extract_picks(preds=pred_batch, fnames=fname_batch, t0=t0_batch, config=args)
+            picks_ = extract_picks(
+                    preds=pred_batch, fnames=fname_batch, t0=t0_batch,
+                    config=args, exclusive=kwargs.get('exclusive', False))
             picks.extend(picks_)
             if args.amplitude:
                 amps_ = extract_amplitude(amp_batch, picks_)

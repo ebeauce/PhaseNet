@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import logging
 from .detect_peaks import detect_peaks
 
-def extract_picks(preds, fnames=None, t0=None, config=None):
+def extract_picks(preds, fnames=None, t0=None, config=None, exclusive=False):
 
     if preds.shape[-1] == 4:
         record = namedtuple("phase", ["fname", "t0", "p_idx", "p_prob", "s_idx", "s_prob", "ps_idx", "ps_prob"])
@@ -41,8 +41,13 @@ def extract_picks(preds, fnames=None, t0=None, config=None):
 
         p_idx, p_prob, s_idx, s_prob = [], [], [], []
         for j in range(pred.shape[1]):
-            p_idx_, p_prob_ = detect_peaks(pred[:,j,1], mph=mph_p, mpd=mpd, show=False)
-            s_idx_, s_prob_ = detect_peaks(pred[:,j,2], mph=mph_s, mpd=mpd, show=False)
+            if exclusive:
+                det_p = pred[:,j,1]*(1. - pred[:,j,2])
+                det_s = pred[:,j,2]*(1. - pred[:,j,1])
+            else:
+                det_p, det_s = pred[:,j,1], pred[:,j,2]
+            p_idx_, p_prob_ = detect_peaks(det_p, mph=mph_p, mpd=mpd, show=False)
+            s_idx_, s_prob_ = detect_peaks(det_s, mph=mph_s, mpd=mpd, show=False)
             p_idx.append(list(p_idx_))
             p_prob.append(list(p_prob_))
             s_idx.append(list(s_idx_))

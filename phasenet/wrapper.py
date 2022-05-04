@@ -426,7 +426,9 @@ def select_picks_family(picks, n_threshold, err_threshold, central='mode'):
     """
     n_threshold = max(1, n_threshold)
     picks_p = {}
+    err_p = {}
     picks_s = {}
+    err_s = {}
     for st in picks['P_picks'].keys():
         pp = picks['P_picks'][st]
         ppb = picks['P_proba'][st]
@@ -448,7 +450,8 @@ def select_picks_family(picks, n_threshold, err_threshold, central='mode'):
         err = np.sqrt(np.sum(ppb*(pp - central_tendency)**2/ppb.sum()))
         if err > err_threshold:
             continue
-        picks_p[st] = np.float32([central_tendency, err])
+        picks_p[st] = central_tendency
+        err_p[st] = err
     for st in picks['S_picks'].keys():
         sp = picks['S_picks'][st]
         spb = picks['S_proba'][st]
@@ -470,10 +473,10 @@ def select_picks_family(picks, n_threshold, err_threshold, central='mode'):
         err = np.sqrt(np.sum(spb*(sp - central_tendency)**2/spb.sum()))
         if err > err_threshold:
             continue
-        picks_s[st] = np.float32([central_tendency, err])
-    selected_picks = {}
-    selected_picks['P_picks'] = picks_p
-    selected_picks['S_picks'] = picks_s
+        picks_s[st] = central_tendency
+        err_s[st] = err
+    selected_picks = {'P_picks': picks_p, 'P_err': err_p,
+                      'S_picks': picks_s, 'S_err': err_s}
     # picks are expressed in samples!
     return selected_picks
 
