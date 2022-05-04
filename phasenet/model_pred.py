@@ -117,56 +117,56 @@ class UNet:
 
         with tf.compat.v1.variable_scope("Input"):
             net = self.X
-            net = tf.compat.v1.layers.conv2d(net,
-                         filters=self.filters_root,
-                         kernel_size=self.kernel_size,
+            net = tf.compat.v1.layers.Conv2D(
+                         self.filters_root,
+                         self.kernel_size,
                          activation=None,
                          padding='same',
                          dilation_rate=self.dilation_rate,
                          kernel_initializer=self.initializer,
                          kernel_regularizer=self.regularizer,
-                         name="input_conv")
-            net = tf.compat.v1.layers.batch_normalization(net,
-                              training=self.is_training,
-                              name="input_bn")
+                         name="input_conv")(net)
+            net = tf.compat.v1.layers.BatchNormalization(
+                              trainable=False,
+                              name="input_bn")(net)
             net = tf.nn.relu(net,
                      name="input_relu")
             # net = tf.nn.dropout(net, self.keep_prob)
-            net = tf.compat.v1.layers.dropout(net,
-                        rate=self.drop_rate,
-                        training=self.is_training,
-                        name="input_dropout")
+            #net = tf.compat.v1.layers.dropout(net,
+            #            rate=self.drop_rate,
+            #            training=self.is_training,
+            #            name="input_dropout")
 
 
         for depth in range(0, self.depths):
             with tf.compat.v1.variable_scope("DownConv_%d" % depth):
                 filters = int(2**(depth) * self.filters_root)
 
-                net = tf.compat.v1.layers.conv2d(net,
-                             filters=filters,
-                             kernel_size=self.kernel_size,
+                net = tf.compat.v1.layers.Conv2D(
+                             filters,
+                             self.kernel_size,
                              activation=None,
                              use_bias=False,
                              padding='same',
                              dilation_rate=self.dilation_rate,
                              kernel_initializer=self.initializer,
                              kernel_regularizer=self.regularizer,
-                             name="down_conv1_{}".format(depth + 1))
-                net = tf.compat.v1.layers.batch_normalization(net,
-                                  training=self.is_training,
-                                  name="down_bn1_{}".format(depth + 1))
+                             name="down_conv1_{}".format(depth + 1))(net)
+                net = tf.compat.v1.layers.BatchNormalization(
+                                  trainable=False,
+                                  name="down_bn1_{}".format(depth + 1))(net)
                 net = tf.nn.relu(net,
                          name="down_relu1_{}".format(depth+1))
-                net = tf.compat.v1.layers.dropout(net,
-                            training=self.is_training,
-                            name="down_dropout1_{}".format(depth + 1))
+                #net = tf.compat.v1.layers.dropout(net,
+                #            training=self.is_training,
+                #            name="down_dropout1_{}".format(depth + 1))
 
                 convs[depth] = net
 
                 if depth < self.depths - 1:
-                  net = tf.compat.v1.layers.conv2d(net,
-                               filters=filters,
-                               kernel_size=self.kernel_size,
+                  net = tf.compat.v1.layers.Conv2D(
+                               filters,
+                               self.kernel_size,
                                strides=self.pool_size,
                                activation=None,
                                use_bias=False,
@@ -174,77 +174,77 @@ class UNet:
                                dilation_rate=self.dilation_rate,
                                kernel_initializer=self.initializer,
                                kernel_regularizer=self.regularizer,
-                               name="down_conv3_{}".format(depth + 1))
-                  net = tf.compat.v1.layers.batch_normalization(net,
-                                    training=self.is_training,
-                                    name="down_bn3_{}".format(depth + 1))
+                               name="down_conv3_{}".format(depth + 1))(net)
+                  net = tf.compat.v1.layers.BatchNormalization(
+                                    trainable=False,
+                                    name="down_bn3_{}".format(depth + 1))(net)
                   net = tf.nn.relu(net,
                            name="down_relu3_{}".format(depth+1))
-                  net = tf.compat.v1.layers.dropout(net,
-                            rate=self.drop_rate,
-                            training=self.is_training,
-                            name="down_dropout3_{}".format(depth + 1))
+                  #net = tf.compat.v1.layers.dropout(net,
+                  #          rate=self.drop_rate,
+                  #          training=self.is_training,
+                  #          name="down_dropout3_{}".format(depth + 1))
 
 
         # up layers
         for depth in range(self.depths - 2, -1, -1):
             with tf.compat.v1.variable_scope("UpConv_%d" % depth):
                 filters = int(2**(depth) * self.filters_root)
-                net = tf.compat.v1.layers.conv2d_transpose(net,
-                                 filters=filters,
-                                 kernel_size=self.kernel_size,
+                net = tf.compat.v1.layers.Conv2DTranspose(
+                                 filters,
+                                 self.kernel_size,
                                  strides=self.pool_size,
                                  activation=None,
                                  use_bias=False,
                                  padding="same",
                                  kernel_initializer=self.initializer,
                                  kernel_regularizer=self.regularizer,
-                                 name="up_conv0_{}".format(depth+1))
-                net = tf.compat.v1.layers.batch_normalization(net,
-                                  training=self.is_training,
-                                  name="up_bn0_{}".format(depth + 1))
+                                 name="up_conv0_{}".format(depth+1))(net)
+                net = tf.compat.v1.layers.BatchNormalization(
+                                  trainable=False,
+                                  name="up_bn0_{}".format(depth + 1))(net)
                 net = tf.nn.relu(net,
                          name="up_relu0_{}".format(depth+1))
-                net = tf.compat.v1.layers.dropout(net,
-                            rate=self.drop_rate,
-                            training=self.is_training,
-                            name="up_dropout0_{}".format(depth + 1))
+                #net = tf.compat.v1.layers.dropout(net,
+                #            rate=self.drop_rate,
+                #            training=self.is_training,
+                #            name="up_dropout0_{}".format(depth + 1))
 
                 
                 #skip connection
                 net = crop_and_concat(convs[depth], net)
 
-                net = tf.compat.v1.layers.conv2d(net,
-                             filters=filters,
-                             kernel_size=self.kernel_size,
+                net = tf.compat.v1.layers.Conv2D(
+                             filters,
+                             self.kernel_size,
                              activation=None,
                              use_bias=False,
                              padding='same',
                              dilation_rate=self.dilation_rate,
                              kernel_initializer=self.initializer,
                              kernel_regularizer=self.regularizer,
-                             name="up_conv1_{}".format(depth + 1))
-                net = tf.compat.v1.layers.batch_normalization(net,
-                                  training=self.is_training,
-                                  name="up_bn1_{}".format(depth + 1))
+                             name="up_conv1_{}".format(depth + 1))(net)
+                net = tf.compat.v1.layers.BatchNormalization(
+                                  trainable=False,
+                                  name="up_bn1_{}".format(depth + 1))(net)
                 net = tf.nn.relu(net,
                          name="up_relu1_{}".format(depth + 1))
-                net = tf.compat.v1.layers.dropout(net,
-                            rate=self.drop_rate,
-                            training=self.is_training,
-                            name="up_dropout1_{}".format(depth + 1))
+                #net = tf.compat.v1.layers.dropout(net,
+                #            rate=self.drop_rate,
+                #            training=self.is_training,
+                #            name="up_dropout1_{}".format(depth + 1))
 
 
         # Output Map
         with tf.compat.v1.variable_scope("Output"):
-            net = tf.compat.v1.layers.conv2d(net,
-                         filters=self.n_class,
-                         kernel_size=(1,1),
+            net = tf.compat.v1.layers.Conv2D(
+                         self.n_class,
+                         (1, 1),
                          activation=None,
                          padding='same',
                          kernel_initializer=self.initializer,
                          kernel_regularizer=self.regularizer,
-                         name="output_conv")
+                         name="output_conv")(net)
             output = net
          
         with tf.compat.v1.variable_scope("representation"):
