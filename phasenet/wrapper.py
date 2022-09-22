@@ -193,6 +193,10 @@ def automatic_picking(data,
     print('n events: {:d}, n stations: {:d}, batch size (n events x n stations): {:d}'.
             format(n_events, n_stations, batch_size))
     data = data.reshape(batch_size, 3, input_length)
+    # normalize the data!!
+    norm = np.std(data, axis=-1, keepdims=True)
+    norm[norm == 0.] = 1.
+    data /= norm
     # make sure the minibatch size is not larger than the
     # total number of traces
     minibatch_size = min(mini_batch_size, batch_size)
