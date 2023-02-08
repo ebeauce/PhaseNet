@@ -10,12 +10,15 @@ from .predict_fn import pred_fn
 
 import pkg_resources
 
-model_dir = pkg_resources.resource_filename('phasenet', os.path.join('model', '190703-214543'))
+model_dir = pkg_resources.resource_filename(
+    "phasenet", os.path.join("model", "190703-214543")
+)
 
 script_path = os.path.dirname(os.path.realpath(__file__))
 
-def format_data_hdf5(data, root_PN_inputs='.', filename='data.h5'):
-    """Format data for PhasetNet (hdf5).  
+
+def format_data_hdf5(data, root_PN_inputs=".", filename="data.h5"):
+    """Format data for PhasetNet (hdf5).
 
     Save the data array in an hdf5 file such that PhaseNet can process it.
 
@@ -31,15 +34,17 @@ def format_data_hdf5(data, root_PN_inputs='.', filename='data.h5'):
         time series to process.
     """
     import h5py as h5
-    with h5.File(os.path.join(root_PN_inputs, filename), 'w') as f:
-        f.create_group('data')
+
+    with h5.File(os.path.join(root_PN_inputs, filename), "w") as f:
+        f.create_group("data")
         for i in range(data.shape[0]):
             # place the component axis at the end
             three_comp_data = np.swapaxes(data[i, ...], 0, 1)
-            f['data'].create_dataset(f'sample{i}', data=three_comp_data)
+            f["data"].create_dataset(f"sample{i}", data=three_comp_data)
+
 
 def format_data_ram(data):
-    """Format data for PhasetNet.  
+    """Format data for PhasetNet.
 
     Build the data dictionary for PhaseNet.
 
@@ -51,22 +56,24 @@ def format_data_ram(data):
     """
     data_pn = {}
     for i in range(data.shape[0]):
-        data_pn[f'sample{i}'] = np.swapaxes(data[i, ...], 0, 1)
+        data_pn[f"sample{i}"] = np.swapaxes(data[i, ...], 0, 1)
     return data_pn
 
 
-def run_pred(input_length,
-             model_path=model_dir,
-             data=None,
-             data_path='./dataset/waveform_pred/',
-             log_dir='./dataset/log/',
-             data_file='./dataset/data.h5',
-             format='hdf5',
-             amplitude=False,
-             batch_size=1,
-             threshold_P=0.6,
-             threshold_S=0.6,
-             **kwargs):
+def run_pred(
+    input_length,
+    model_path=model_dir,
+    data=None,
+    data_path="./dataset/waveform_pred/",
+    log_dir="./dataset/log/",
+    data_file="./dataset/data.h5",
+    format="hdf5",
+    amplitude=False,
+    batch_size=1,
+    threshold_P=0.6,
+    threshold_S=0.6,
+    **kwargs,
+):
     """Run PhaseNet and fetch its raw output: the P and S probabilities.
 
     Results are stored at the user-defined location `output_filename`. Extra
@@ -96,38 +103,44 @@ def run_pred(input_length,
         S-wave identification threshold. When PhaseNet's raw output
         (proba) exceeds `threshold_S`, a detection is triggered.
     """
-    if format == 'hdf5':
+    if format == "hdf5":
         data_reader = DataReader_pred(
-            format='hdf5',
-            data_list='', # not used with hdf5 format
+            format="hdf5",
+            data_list="",  # not used with hdf5 format
             hdf5_file=data_file,
-            hdf5_group='data',
-            amplitude=amplitude)
-    elif format == 'ram':
-        data_reader = DataReader_pred(
-            format='ram',
-            data=data,
-            amplitude=amplitude)
+            hdf5_group="data",
+            amplitude=amplitude,
+        )
+    elif format == "ram":
+        data_reader = DataReader_pred(format="ram", data=data, amplitude=amplitude)
     PhaseNet_proba, PhaseNet_picks = pred_fn(
-            data_reader, model_dir=model_path, log_dir=log_dir,
-            batch_size=batch_size, input_length=input_length,
-            min_p_prob=threshold_P, min_s_prob=threshold_S,
-            **kwargs)
-    if format == 'hdf5':
+        data_reader,
+        model_dir=model_path,
+        log_dir=log_dir,
+        batch_size=batch_size,
+        input_length=input_length,
+        min_p_prob=threshold_P,
+        min_s_prob=threshold_S,
+        **kwargs,
+    )
+    if format == "hdf5":
         # PhaseNet does not take care of closing the hdf5 file
         data_reader.h5.close()
     return PhaseNet_proba, PhaseNet_picks
 
-def automatic_picking(data,
-                      station_names,
-                      PN_base=None,
-                      PN_dataset_name=None,
-                      format='ram',
-                      mini_batch_size=126,
-                      threshold_P=0.6,
-                      threshold_S=0.6,
-                      **kwargs):
-    """Wrapper function to call PhaseNet from a python script.  
+
+def automatic_picking(
+    data,
+    station_names,
+    PN_base=None,
+    PN_dataset_name=None,
+    format="ram",
+    mini_batch_size=126,
+    threshold_P=0.6,
+    threshold_S=0.6,
+    **kwargs,
+):
+    """Wrapper function to call PhaseNet from a python script.
 
     Extra kwargs are passed to `phasenet.predict_fn.pred_fn`.
 
@@ -160,7 +173,7 @@ def automatic_picking(data,
     ---------
     PhaseNet_probas: (n_events, n_stations, n_samples, 2) numpy.narray, float
         Probabilities of P- and S-wave arrival on the continuous time axis.
-        PhaseNet_probas[..., 0] is the P-wave probability.  
+        PhaseNet_probas[..., 0] is the P-wave probability.
         PhaseNet_probas[..., 1] is the S-wave probability.
     PhaseNet_picks: dictionary
         Dictionary with four fields: 'P_proba', 'P_picks',
@@ -170,18 +183,18 @@ def automatic_picking(data,
         (n_events, numpy.ndarrays) array of arrays with all picks and
         associated probabilities for each event.
     """
-    if format == 'hdf5':
+    if format == "hdf5":
         if not os.path.isdir(PN_base):
-            print(f'Creating the formatted data root folder at {PN_base}')
+            print(f"Creating the formatted data root folder at {PN_base}")
             os.mkdir(PN_base)
         # clean up input/output directories if necessary
         root_PN_inputs = os.path.join(PN_base, PN_dataset_name)
         if not os.path.isdir(root_PN_inputs):
-            print(f'Creating the experiment root folder at {root_PN_inputs}')
+            print(f"Creating the experiment root folder at {root_PN_inputs}")
             os.mkdir(root_PN_inputs)
     else:
-        PN_base = ''
-        root_PN_inputs = ''
+        PN_base = ""
+        root_PN_inputs = ""
 
     # assume the data were provided in the shape
     # (n_events x n_stations x 3-comp x time_duration)
@@ -189,55 +202,61 @@ def automatic_picking(data,
     n_stations = data.shape[1]
     input_length = data.shape[3]
     # for efficiency, we merge the event and the station axes
-    batch_size = n_events*n_stations
-    print('n events: {:d}, n stations: {:d}, batch size (n events x n stations): {:d}'.
-            format(n_events, n_stations, batch_size))
+    batch_size = n_events * n_stations
+    print(
+        "n events: {:d}, n stations: {:d}, batch size (n events x n stations): {:d}".format(
+            n_events, n_stations, batch_size
+        )
+    )
     data = data.reshape(batch_size, 3, input_length)
     # normalize the data!!
     norm = np.std(data, axis=-1, keepdims=True)
-    norm[norm == 0.] = 1.
+    norm[norm == 0.0] = 1.0
     data /= norm
     # make sure the minibatch size is not larger than the
     # total number of traces
     minibatch_size = min(mini_batch_size, batch_size)
 
     # generate the input files necessary for PhaseNet
-    if format == 'hdf5':
+    if format == "hdf5":
         format_data_hdf5(data, root_PN_inputs=root_PN_inputs)
         data_pn = None
-    elif format == 'ram':
+    elif format == "ram":
         data_pn = format_data_ram(data)
     # call PhaseNet
     PhaseNet_proba, PhaseNet_picks = run_pred(
-            input_length,
-            data_file=os.path.join(root_PN_inputs, 'data.h5'),
-            log_dir=os.path.join(root_PN_inputs, 'log'),
-            batch_size=mini_batch_size,
-            threshold_P=threshold_P,
-            threshold_S=threshold_S,
-            format=format,
-            data=data_pn,
-            **kwargs)
+        input_length,
+        data_file=os.path.join(root_PN_inputs, "data.h5"),
+        log_dir=os.path.join(root_PN_inputs, "log"),
+        batch_size=mini_batch_size,
+        threshold_P=threshold_P,
+        threshold_S=threshold_S,
+        format=format,
+        data=data_pn,
+        **kwargs,
+    )
     # the new PhaseNet_proba is an array of time series with [..., 0] = proba of P arrival
     # and [..., 1] = proba of S arrival (the original [..., 0] was simply 1 - Pp - Ps)
-    PhaseNet_proba = PhaseNet_proba.reshape((n_events, n_stations, input_length, 3))[..., 1:]
+    PhaseNet_proba = PhaseNet_proba.reshape((n_events, n_stations, input_length, 3))[
+        ..., 1:
+    ]
     PhaseNet_picks = PhaseNet_picks.reshape((n_events, n_stations, 2, 2))
     # return picks in a comprehensive python dictionary
     picks = {}
-    picks['P_picks'] = {}
-    picks['P_proba'] = {}
-    picks['S_picks'] = {}
-    picks['S_proba'] = {}
+    picks["P_picks"] = {}
+    picks["P_proba"] = {}
+    picks["S_picks"] = {}
+    picks["S_proba"] = {}
     for s in range(n_stations):
-        # (n_events, arrays): array of arrays with all detected P-arrival picks 
-        picks['P_picks'][station_names[s]] = PhaseNet_picks[:, s, 0, 0]
-        # (n_events, arrays): array of arrays with probabilities of all detected P-arrival picks 
-        picks['P_proba'][station_names[s]] = PhaseNet_picks[:, s, 0, 1]
-        # (n_events, arrays): array of arrays with all detected S-arrival picks 
-        picks['S_picks'][station_names[s]] = PhaseNet_picks[:, s, 1, 0]
-        # (n_events, arrays): array of arrays with probabilities of all detected S-arrival picks 
-        picks['S_proba'][station_names[s]] = PhaseNet_picks[:, s, 1, 1]
-    if format == 'hdf5':
+        # (n_events, arrays): array of arrays with all detected P-arrival picks
+        picks["P_picks"][station_names[s]] = PhaseNet_picks[:, s, 0, 0]
+        # (n_events, arrays): array of arrays with probabilities of all detected P-arrival picks
+        picks["P_proba"][station_names[s]] = PhaseNet_picks[:, s, 0, 1]
+        # (n_events, arrays): array of arrays with all detected S-arrival picks
+        picks["S_picks"][station_names[s]] = PhaseNet_picks[:, s, 1, 0]
+        # (n_events, arrays): array of arrays with probabilities of all detected S-arrival picks
+        picks["S_proba"][station_names[s]] = PhaseNet_picks[:, s, 1, 1]
+    if format == "hdf5":
         # clean up when done
         shutil.rmtree(root_PN_inputs)
     return PhaseNet_proba, picks
@@ -249,59 +268,57 @@ def automatic_picking(data,
 
 
 def get_best_picks(picks, buffer_length=50):
-    """Filter picks to keep the best one on each 3-comp seismogram.
-
-
-    """
-    for st in picks['P_picks'].keys():
-        for n in range(len(picks['P_picks'][st])):
-            pp = picks['P_picks'][st][n]
-            ps = picks['S_picks'][st][n]
+    """Filter picks to keep the best one on each 3-comp seismogram."""
+    for st in picks["P_picks"].keys():
+        for n in range(len(picks["P_picks"][st])):
+            pp = picks["P_picks"][st][n]
+            ps = picks["S_picks"][st][n]
             # ----------------
             # remove picks form the buffer length
-            valid_P_picks = picks['P_picks'][st][n] > int(buffer_length)
-            valid_S_picks = picks['S_picks'][st][n] > int(buffer_length)
-            picks['P_picks'][st][n] = picks['P_picks'][st][n][valid_P_picks]
-            picks['S_picks'][st][n] = picks['S_picks'][st][n][valid_S_picks]
-            picks['P_proba'][st][n] = picks['P_proba'][st][n][valid_P_picks]
-            picks['S_proba'][st][n] = picks['S_proba'][st][n][valid_S_picks]
+            valid_P_picks = picks["P_picks"][st][n] > int(buffer_length)
+            valid_S_picks = picks["S_picks"][st][n] > int(buffer_length)
+            picks["P_picks"][st][n] = picks["P_picks"][st][n][valid_P_picks]
+            picks["S_picks"][st][n] = picks["S_picks"][st][n][valid_S_picks]
+            picks["P_proba"][st][n] = picks["P_proba"][st][n][valid_P_picks]
+            picks["S_proba"][st][n] = picks["S_proba"][st][n][valid_S_picks]
             # take only the highest probability trigger
-            if len(picks['S_picks'][st][n]) > 0:
-                best_S_trigger = picks['S_proba'][st][n].argmax()
-                picks['S_picks'][st][n] = picks['S_picks'][st][n][best_S_trigger]
-                picks['S_proba'][st][n] = picks['S_proba'][st][n][best_S_trigger]
+            if len(picks["S_picks"][st][n]) > 0:
+                best_S_trigger = picks["S_proba"][st][n].argmax()
+                picks["S_picks"][st][n] = picks["S_picks"][st][n][best_S_trigger]
+                picks["S_proba"][st][n] = picks["S_proba"][st][n][best_S_trigger]
                 # update P picks: keep only those that are before the best S pick
-                valid_P_picks = picks['P_picks'][st][n] < picks['S_picks'][st][n]
-                picks['P_picks'][st][n] = picks['P_picks'][st][n][valid_P_picks]
-                picks['P_proba'][st][n] = picks['P_proba'][st][n][valid_P_picks]
+                valid_P_picks = picks["P_picks"][st][n] < picks["S_picks"][st][n]
+                picks["P_picks"][st][n] = picks["P_picks"][st][n][valid_P_picks]
+                picks["P_proba"][st][n] = picks["P_proba"][st][n][valid_P_picks]
             else:
                 # if no valid S pick: fill in with nan
-                picks['S_picks'][st][n] = np.nan
-                picks['S_proba'][st][n] = np.nan
-            if len(picks['P_picks'][st][n]) > 0:
-                best_P_trigger = picks['P_proba'][st][n].argmax()
-                picks['P_picks'][st][n] = picks['P_picks'][st][n][best_P_trigger]
-                picks['P_proba'][st][n] = picks['P_proba'][st][n][best_P_trigger]
+                picks["S_picks"][st][n] = np.nan
+                picks["S_proba"][st][n] = np.nan
+            if len(picks["P_picks"][st][n]) > 0:
+                best_P_trigger = picks["P_proba"][st][n].argmax()
+                picks["P_picks"][st][n] = picks["P_picks"][st][n][best_P_trigger]
+                picks["P_proba"][st][n] = picks["P_proba"][st][n][best_P_trigger]
             else:
                 # if no valid P pick: fill in with nan
-                picks['P_picks'][st][n] = np.nan
-                picks['P_proba'][st][n] = np.nan
+                picks["P_picks"][st][n] = np.nan
+                picks["P_proba"][st][n] = np.nan
         # convert picks to float to allow NaNs
-        picks['P_picks'][st] = np.float32(picks['P_picks'][st])
-        picks['S_picks'][st] = np.float32(picks['S_picks'][st])
-        picks['P_proba'][st] = np.float32(picks['P_proba'][st])
-        picks['S_proba'][st] = np.float32(picks['S_proba'][st])
+        picks["P_picks"][st] = np.float32(picks["P_picks"][st])
+        picks["S_picks"][st] = np.float32(picks["S_picks"][st])
+        picks["P_proba"][st] = np.float32(picks["P_proba"][st])
+        picks["S_proba"][st] = np.float32(picks["S_proba"][st])
     return picks
 
+
 def get_all_picks(picks, buffer_length=50):
-    """Combine all picks from multiple events (1 station) in one array.  
+    """Combine all picks from multiple events (1 station) in one array.
 
     This function makes sense when the (n_events, n_stations, n_components,
     n_samples) `data` array given to `automatic_picking` is an array of
     `n_events` similar earthquakes (i.e. similar locations, and therefore
-    similar expected picks).  
+    similar expected picks).
     Then, each station has potentially many P-wave and S-wave
-    picks with which we can define a mean value and an error (see 
+    picks with which we can define a mean value and an error (see
     `fit_probability_density`).
 
     Parameters
@@ -318,40 +335,41 @@ def get_all_picks(picks, buffer_length=50):
     picks: dictionary
         A dictionary with 4 fields: `P_picks`, 'S_picks', 'P_proba',
         'S_proba', and each of these fields is itself a dictionary for one
-        entry for each station.  
+        entry for each station.
         Example: picks['P_picks']['station1'] = [124, 123, 126, 250] means that
         4 P-wave picks were identified on station1, with possibly one outlier at
         sample 250.
     """
-    for st in picks['P_picks'].keys():
+    for st in picks["P_picks"].keys():
         P_picks = []
         P_proba = []
         S_picks = []
         S_proba = []
-        for n in range(len(picks['P_picks'][st])):
-            pp = picks['P_picks'][st][n]
-            ps = picks['S_picks'][st][n]
+        for n in range(len(picks["P_picks"][st])):
+            pp = picks["P_picks"][st][n]
+            ps = picks["S_picks"][st][n]
             # ----------------
             # remove picks from the buffer length
-            valid_P_picks = picks['P_picks'][st][n] > int(buffer_length)
-            valid_S_picks = picks['S_picks'][st][n] > int(buffer_length)
-            picks['P_picks'][st][n] = picks['P_picks'][st][n][valid_P_picks]
-            picks['S_picks'][st][n] = picks['S_picks'][st][n][valid_S_picks]
-            picks['P_proba'][st][n] = picks['P_proba'][st][n][valid_P_picks]
-            picks['S_proba'][st][n] = picks['S_proba'][st][n][valid_S_picks]
+            valid_P_picks = picks["P_picks"][st][n] > int(buffer_length)
+            valid_S_picks = picks["S_picks"][st][n] > int(buffer_length)
+            picks["P_picks"][st][n] = picks["P_picks"][st][n][valid_P_picks]
+            picks["S_picks"][st][n] = picks["S_picks"][st][n][valid_S_picks]
+            picks["P_proba"][st][n] = picks["P_proba"][st][n][valid_P_picks]
+            picks["S_proba"][st][n] = picks["S_proba"][st][n][valid_S_picks]
             # take all picks
-            P_picks.extend(picks['P_picks'][st][n].tolist())
-            P_proba.extend(picks['P_proba'][st][n].tolist())
-            S_picks.extend(picks['S_picks'][st][n].tolist())
-            S_proba.extend(picks['S_proba'][st][n].tolist())
-        picks['P_picks'][st] = np.int32(P_picks)
-        picks['S_picks'][st] = np.int32(S_picks)
-        picks['P_proba'][st] = np.float32(P_proba)
-        picks['S_proba'][st] = np.float32(S_proba)
+            P_picks.extend(picks["P_picks"][st][n].tolist())
+            P_proba.extend(picks["P_proba"][st][n].tolist())
+            S_picks.extend(picks["S_picks"][st][n].tolist())
+            S_proba.extend(picks["S_proba"][st][n].tolist())
+        picks["P_picks"][st] = np.int32(P_picks)
+        picks["S_picks"][st] = np.int32(S_picks)
+        picks["P_proba"][st] = np.float32(P_proba)
+        picks["S_proba"][st] = np.float32(S_proba)
     return picks
 
+
 def fit_probability_density(picks, overwrite=False):
-    """Estimate pdf of pick distribution.  
+    """Estimate pdf of pick distribution.
 
     When multiple picks of the same (or similar) arrival time
     are available, their empirical distribution can be used to
@@ -371,35 +389,40 @@ def fit_probability_density(picks, overwrite=False):
     ---------
     picks: dictionary
         Input dictionary updated with the new field 'P/S_kde', which is the
-        kernel estimate of the pdf. If `overwrite` is True, 'P/S_proba' is 
+        kernel estimate of the pdf. If `overwrite` is True, 'P/S_proba' is
         also equal to 'P/S_kde'.
     """
     from sklearn.neighbors import KernelDensity
+
     # estimate probability density with gaussian kernels
     # of bandwidth 5 (in samples)
-    kde = KernelDensity(kernel='gaussian', bandwidth=5)
+    kde = KernelDensity(kernel="gaussian", bandwidth=5)
     # update dictionary
-    picks['P_kde'] = {}
-    picks['S_kde'] = {}
-    for st in picks['P_picks'].keys():
-        if len(picks['P_picks'][st]) > 0:
-            kde.fit(picks['P_picks'][st].reshape(-1, 1), sample_weight=picks['P_proba'][st])
-            log_proba_samples = kde.score_samples(picks['P_picks'][st].reshape(-1, 1))
-            picks['P_kde'][st] = np.exp(log_proba_samples).squeeze()
+    picks["P_kde"] = {}
+    picks["S_kde"] = {}
+    for st in picks["P_picks"].keys():
+        if len(picks["P_picks"][st]) > 0:
+            kde.fit(
+                picks["P_picks"][st].reshape(-1, 1), sample_weight=picks["P_proba"][st]
+            )
+            log_proba_samples = kde.score_samples(picks["P_picks"][st].reshape(-1, 1))
+            picks["P_kde"][st] = np.exp(log_proba_samples).squeeze()
             if overwrite:
-                picks['P_proba'][st] = np.array(picks['P_kde'][st], ndmin=1)
+                picks["P_proba"][st] = np.array(picks["P_kde"][st], ndmin=1)
         # ---------------------------
-        if len(picks['S_picks'][st]) > 0:
-            kde.fit(picks['S_picks'][st].reshape(-1, 1), sample_weight=picks['S_proba'][st])
-            log_proba_samples = kde.score_samples(picks['S_picks'][st].reshape(-1, 1))
-            picks['S_kde'][st] = np.exp(log_proba_samples).squeeze()
+        if len(picks["S_picks"][st]) > 0:
+            kde.fit(
+                picks["S_picks"][st].reshape(-1, 1), sample_weight=picks["S_proba"][st]
+            )
+            log_proba_samples = kde.score_samples(picks["S_picks"][st].reshape(-1, 1))
+            picks["S_kde"][st] = np.exp(log_proba_samples).squeeze()
             if overwrite:
-                picks['S_proba'][st] = np.array(picks['S_kde'][st], ndmin=1)
+                picks["S_proba"][st] = np.array(picks["S_kde"][st], ndmin=1)
     return picks
 
 
-def select_picks_family(picks, n_threshold, err_threshold, central='mode'):
-    """Filter picks based on their quality.  
+def select_picks_family(picks, n_threshold, err_threshold, central="mode"):
+    """Filter picks based on their quality.
 
     After processing by `fit_probability_density`, the quality of a
     given P/S composite pick can be evaluated by the number of individual
@@ -433,60 +456,64 @@ def select_picks_family(picks, n_threshold, err_threshold, central='mode'):
     err_p = {}
     picks_s = {}
     err_s = {}
-    for st in picks['P_picks'].keys():
-        pp = picks['P_picks'][st]
-        ppb = picks['P_proba'][st]
+    for st in picks["P_picks"].keys():
+        pp = picks["P_picks"][st]
+        ppb = picks["P_proba"][st]
         # remove the invalid picks
         valid = ~np.isnan(pp)
         pp = pp[valid]
         ppb = ppb[valid]
         if len(pp) < n_threshold:
             continue
-        if central == 'mode':
+        if central == "mode":
             # take the most likely value as the estimate of the pick
             central_tendency = pp[ppb.argmax()]
-        elif central == 'mean':
-            central_tendency = np.sum(np.float32(pp)*ppb)/np.sum(ppb)
+        elif central == "mean":
+            central_tendency = np.sum(np.float32(pp) * ppb) / np.sum(ppb)
         else:
-            print('central should be either mean or mode!')
+            print("central should be either mean or mode!")
             return
         # estimate the dispersion around this value
-        err = np.sqrt(np.sum(ppb*(pp - central_tendency)**2/ppb.sum()))
+        err = np.sqrt(np.sum(ppb * (pp - central_tendency) ** 2 / ppb.sum()))
         if err > err_threshold:
             continue
         picks_p[st] = central_tendency
         err_p[st] = err
-    for st in picks['S_picks'].keys():
-        sp = picks['S_picks'][st]
-        spb = picks['S_proba'][st]
+    for st in picks["S_picks"].keys():
+        sp = picks["S_picks"][st]
+        spb = picks["S_proba"][st]
         # remove the invalid picks
         valid = ~np.isnan(sp)
         sp = sp[valid]
         spb = spb[valid]
         if len(sp) < n_threshold:
             continue
-        if central == 'mode':
+        if central == "mode":
             # take the most likely value as the estimate of the pick
             central_tendency = sp[spb.argmax()]
-        elif central == 'mean':
-            central_tendency = np.sum(np.float32(sp)*spb)/np.sum(spb)
+        elif central == "mean":
+            central_tendency = np.sum(np.float32(sp) * spb) / np.sum(spb)
         else:
-            print('central should be either mean or mode!')
+            print("central should be either mean or mode!")
             return
         # estimate the dispersion around this value
-        err = np.sqrt(np.sum(spb*(sp - central_tendency)**2/spb.sum()))
+        err = np.sqrt(np.sum(spb * (sp - central_tendency) ** 2 / spb.sum()))
         if err > err_threshold:
             continue
         picks_s[st] = central_tendency
         err_s[st] = err
-    selected_picks = {'P_picks': picks_p, 'P_err': err_p,
-                      'S_picks': picks_s, 'S_err': err_s}
+    selected_picks = {
+        "P_picks": picks_p,
+        "P_err": err_p,
+        "S_picks": picks_s,
+        "S_err": err_s,
+    }
     # picks are expressed in samples!
     return selected_picks
 
 
 def plot_picks(picks, data_stream, figname=None, show=False, figsize=(20, 10)):
-    """Plot the picks returned by `automatic_picking`.  
+    """Plot the picks returned by `automatic_picking`.
 
     Parameters
     -------------
@@ -509,62 +536,76 @@ def plot_picks(picks, data_stream, figname=None, show=False, figsize=(20, 10)):
         The `matplotlib.pyplot.Figure` instance created in this function.
     """
     import matplotlib.pyplot as plt
+
     old_params = plt.rcParams.copy()
-    plt.rcParams.update({'ytick.labelsize'  :  10})
-    plt.rcParams.update({'legend.fontsize': 7})
+    plt.rcParams.update({"ytick.labelsize": 10})
+    plt.rcParams.update({"legend.fontsize": 7})
     # --------------------------
-    stations = list(set(list(picks['P_picks'].keys()) \
-                      + list(picks['S_picks'].keys())))
+    stations = list(set(list(picks["P_picks"].keys()) + list(picks["S_picks"].keys())))
     sr = data_stream[0].stats.sampling_rate
-    components = ['N', 'E', 'Z']
+    components = ["N", "E", "Z"]
     n_components = len(components)
     # --------------------------
-    time = np.linspace(
-            0., data_stream[0].stats.npts/sr, data_stream[0].stats.npts)
+    time = np.linspace(0.0, data_stream[0].stats.npts / sr, data_stream[0].stats.npts)
     fig, axes = plt.subplots(
-            num=figname, figsize=figsize, nrows=len(stations), ncols=n_components)
+        num=figname, figsize=figsize, nrows=len(stations), ncols=n_components
+    )
     for s in range(len(stations)):
         for c in range(n_components):
             ax = axes[s, c]
             try:
-                ax.plot(time, data_stream.select(
-                    station=stations[s], component=components[c])[0].data,
-                        color='k', lw=0.75, label=f'{stations[s]}.{components[c]}')
+                ax.plot(
+                    time,
+                    data_stream.select(station=stations[s], component=components[c])[
+                        0
+                    ].data,
+                    color="k",
+                    lw=0.75,
+                    label=f"{stations[s]}.{components[c]}",
+                )
             except IndexError:
                 # no data
                 continue
-            ax.legend(loc='upper right', fancybox=True, handlelength=0.2, borderpad=0.1)
-            if stations[s] in picks['P_picks'].keys():
-                ax.axvline(
-                        picks['P_picks'][stations[s]][0], color='C0', lw=1.0)
-                xmin = picks['P_picks'][stations[s]][0]\
-                        - picks['P_picks'][stations[s]][1]
-                xmax = picks['P_picks'][stations[s]][0]\
-                        + picks['P_picks'][stations[s]][1]
+            ax.legend(loc="upper right", fancybox=True, handlelength=0.2, borderpad=0.1)
+            if stations[s] in picks["P_picks"].keys():
+                ax.axvline(picks["P_picks"][stations[s]][0], color="C0", lw=1.0)
+                xmin = (
+                    picks["P_picks"][stations[s]][0] - picks["P_picks"][stations[s]][1]
+                )
+                xmax = (
+                    picks["P_picks"][stations[s]][0] + picks["P_picks"][stations[s]][1]
+                )
                 ymin, ymax = ax.get_ylim()
-                ax.fill([xmin, xmin, xmax, xmax],
-                        [ymin, ymax, ymax, ymin],
-                        color='C0', alpha=0.5, zorder=-1)
-            if stations[s] in picks['S_picks'].keys():
-                ax.axvline(
-                        picks['S_picks'][stations[s]][0], color='C3', lw=1.0)
-                xmin = picks['S_picks'][stations[s]][0]\
-                        - picks['S_picks'][stations[s]][1]
-                xmax = picks['S_picks'][stations[s]][0]\
-                        + picks['S_picks'][stations[s]][1]
+                ax.fill(
+                    [xmin, xmin, xmax, xmax],
+                    [ymin, ymax, ymax, ymin],
+                    color="C0",
+                    alpha=0.5,
+                    zorder=-1,
+                )
+            if stations[s] in picks["S_picks"].keys():
+                ax.axvline(picks["S_picks"][stations[s]][0], color="C3", lw=1.0)
+                xmin = (
+                    picks["S_picks"][stations[s]][0] - picks["S_picks"][stations[s]][1]
+                )
+                xmax = (
+                    picks["S_picks"][stations[s]][0] + picks["S_picks"][stations[s]][1]
+                )
                 ymin, ymax = ax.get_ylim()
-                ax.fill([xmin, xmin, xmax, xmax],
-                        [ymin, ymax, ymax, ymin],
-                        color='C3', alpha=0.5, zorder=-1)
+                ax.fill(
+                    [xmin, xmin, xmax, xmax],
+                    [ymin, ymax, ymax, ymin],
+                    color="C3",
+                    alpha=0.5,
+                    zorder=-1,
+                )
             ax.set_xlim(time.min(), time.max())
             ax.set_yticks([])
-            if s < len(stations)-1:
+            if s < len(stations) - 1:
                 plt.setp(ax.get_xticklabels(), visible=False)
             else:
-                ax.set_xlabel('Time (s)')
-    plt.subplots_adjust(
-            top=0.98, bottom=0.06, left=0.02,
-            right=0.98, hspace=0.)
+                ax.set_xlabel("Time (s)")
+    plt.subplots_adjust(top=0.98, bottom=0.06, left=0.02, right=0.98, hspace=0.0)
     if show:
         plt.show()
     plt.rcParams = old_params
@@ -574,78 +615,77 @@ def plot_picks(picks, data_stream, figname=None, show=False, figsize=(20, 10)):
 def select_picks_single_event(picks, event_id, uncertainty=5):
     picks_p = {}
     picks_s = {}
-    for st in picks['P_picks'].keys():
-        pp = picks['P_picks'][st][event_id]
+    for st in picks["P_picks"].keys():
+        pp = picks["P_picks"][st][event_id]
         if np.isnan(pp):
             continue
         picks_p[st] = np.int32([pp, uncertainty])
-    for st in picks['S_picks'].keys():
-        sp = picks['S_picks'][st][event_id]
+    for st in picks["S_picks"].keys():
+        sp = picks["S_picks"][st][event_id]
         if np.isnan(sp):
             continue
         picks_s[st] = np.int32([sp, uncertainty])
     selected_picks = {}
-    selected_picks['P_picks'] = picks_p
-    selected_picks['S_picks'] = picks_s
+    selected_picks["P_picks"] = picks_p
+    selected_picks["S_picks"] = picks_s
     # picks are expressed in samples!
     return selected_picks
 
+
 def keep_only_PS(picks):
-    p_stations = list(picks['P_picks'].keys())
-    s_stations = list(picks['S_picks'].keys())
+    p_stations = list(picks["P_picks"].keys())
+    s_stations = list(picks["S_picks"].keys())
     for st in p_stations:
         # delete P stations that are
         # not in S stations
         if st not in s_stations:
-            del picks['P_picks'][st]
+            del picks["P_picks"][st]
     # update station lists
-    p_stations = list(picks['P_picks'].keys())
-    s_stations = list(picks['S_picks'].keys())
+    p_stations = list(picks["P_picks"].keys())
+    s_stations = list(picks["S_picks"].keys())
     for st in s_stations:
         # delete S stations that are
         # not in P stations
         if st not in p_stations:
-            del picks['S_picks'][st]
+            del picks["S_picks"][st]
     return picks
 
-def convert_picks_to_sec(picks,
-                         sampling_rate):
-    for st in picks['P_picks'].keys():
-        picks['P_picks'][st] = np.float32(picks['P_picks'][st])/sampling_rate
-    for st in picks['S_picks'].keys():
-        picks['S_picks'][st] = np.float32(picks['S_picks'][st])/sampling_rate
+
+def convert_picks_to_sec(picks, sampling_rate):
+    for st in picks["P_picks"].keys():
+        picks["P_picks"][st] = np.float32(picks["P_picks"][st]) / sampling_rate
+    for st in picks["S_picks"].keys():
+        picks["S_picks"][st] = np.float32(picks["S_picks"][st]) / sampling_rate
     return picks
 
-def save_picks(picks,
-               filename,
-               path=''):
+
+def save_picks(picks, filename, path=""):
 
     # picks should be expressed in seconds!
 
-    with h5.File(os.path.join(path, filename), 'w') as f:
-        f.create_group('P')
-        for st in picks['P_picks'].keys():
-            f['P'].create_dataset(st, data=np.float32(picks['P_picks'][st]))
-        f.create_group('S')
-        for st in picks['S_picks'].keys():
-            f['S'].create_dataset(st, data=np.float32(picks['S_picks'][st]))
-        if 'origin_time' in picks.keys():
+    with h5.File(os.path.join(path, filename), "w") as f:
+        f.create_group("P")
+        for st in picks["P_picks"].keys():
+            f["P"].create_dataset(st, data=np.float32(picks["P_picks"][st]))
+        f.create_group("S")
+        for st in picks["S_picks"].keys():
+            f["S"].create_dataset(st, data=np.float32(picks["S_picks"][st]))
+        if "origin_time" in picks.keys():
             # picks for an actual event are
             # associated to an origin time
-            f.create_dataset('origin_time', data=picks['origin_time'])
+            f.create_dataset("origin_time", data=picks["origin_time"])
 
-def read_picks(filename,
-               path=''):
+
+def read_picks(filename, path=""):
 
     picks = {}
-    picks['P_picks'] = {}
-    picks['S_picks'] = {}
-    with h5.File(os.path.join(path, filename), 'r') as f:
-        for key in f['P'].keys():
-            picks['P_picks'][key] = f['P'][key][()]
-        for key in f['S'].keys():
-            picks['S_picks'][key] = f['S'][key][()]
-        if 'origin_time' in f.keys():
-            picks['origin_time'] = f['origin_time'][()]
+    picks["P_picks"] = {}
+    picks["S_picks"] = {}
+    with h5.File(os.path.join(path, filename), "r") as f:
+        for key in f["P"].keys():
+            picks["P_picks"][key] = f["P"][key][()]
+        for key in f["S"].keys():
+            picks["S_picks"][key] = f["S"][key][()]
+        if "origin_time" in f.keys():
+            picks["origin_time"] = f["origin_time"][()]
     return picks
-
