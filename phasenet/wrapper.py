@@ -265,6 +265,98 @@ def automatic_picking(
 # --------------------------------------------------------------------------------
 #     The following functions were tailored for template matching applications
 # --------------------------------------------------------------------------------
+def get_picks(picks, buffer_length=50, prior_knowledge=None, search_win_samp=100):
+    """Select a single P- and S-pick on each 3-comp seismogram.
+    
+    Parameters
+    ----------
+    picks: dictionary
+        Dictionary returned by `automatic_picking`.
+    buffer_length: scalar int, optional
+        Picks that are before this buffer length, in samples, are discarded.
+    prior_knowledge: pandas.DataFrame, optional
+        If given, picks that are closer to the a priori pick
+        (for example, given by a preliminary location) will be given
+        a larger weight and will be more likely to be selected. In practice,
+        pick probabilities are multiplied by gaussian weights and the highest
+        modified pick probability is selected.
+    search_win_samp: scalar int, optional
+        Standard deviation, in samples, used in the gaussian weights.
+    """
+    for st in picks["P_picks"].keys():
+        if prior_knowledge is not None:
+            prior_P = prior_knowledge.loc[st, "P"]
+            prior_S = prior_knowledge.loc[st, "S"]
+        for n in range(len(picks["P_picks"][st])):
+            pp = picks["P_picks"][st][n]
+            ps = picks["S_picks"][st][n]
+            # ----------------
+            # remove picks from the buffer length
+            valid_P_picks = picks["P_picks"][st][n] > int(buffer_length)
+            valid_S_picks = picks["S_picks"][st][n] > int(buffer_length)
+            picks["P_picks"][st][n] = picks["P_picks"][st][n][valid_P_picks]
+            picks["S_picks"][st][n] = picks["S_picks"][st][n][valid_S_picks]
+            picks["P_proba"][st][n] = picks["P_proba"][st][n][valid_P_picks]
+            picks["S_proba"][st][n] = picks["S_proba"][st][n][valid_S_picks]
+            search_S_pick = True
+            search_P_pick = True
+            if len(picks["S_picks"][st][n]) == 0:
+                # if no valid S pick: fill in with nan
+                picks["S_picks"][st][n] = np.nan
+                picks["S_proba"][st][n] = np.nan
+                search_S_pick = False
+            if len(picks["P_picks"][st][n]) == 0:
+                # if no valid P pick: fill in with nan
+                picks["P_picks"][st][n] = np.nan
+                picks["P_proba"][st][n] = np.nan
+                search_P_pick = False
+            if search_S_pick:
+                if prior_knowledge is None:
+                    # take only the highest probability trigger
+                    best_S_trigger = picks["S_proba"][st][n].argmax()
+                else:
+                    # use a priori picks
+                    tapered_S_probas = (
+                            picks["S_proba"][st][n]
+                            *
+                            np.exp(
+                                -(picks["S_picks"][st][n] - prior_S)**2/(2.*search_win_samp**2)
+                                )
+                            )
+                    best_S_trigger = tapered_S_probas.argmax()
+                picks["S_picks"][st][n] = picks["S_picks"][st][n][best_S_trigger]
+                picks["S_proba"][st][n] = picks["S_proba"][st][n][best_S_trigger]
+                # update P picks: keep only those that are before the best S pick
+                valid_P_picks = picks["P_picks"][st][n] < picks["S_picks"][st][n]
+                picks["P_picks"][st][n] = picks["P_picks"][st][n][valid_P_picks]
+                picks["P_proba"][st][n] = picks["P_proba"][st][n][valid_P_picks]
+                if len(picks["P_picks"][st][n]) == 0:
+                    # if no valid P pick: fill in with nan
+                    picks["P_picks"][st][n] = np.nan
+                    picks["P_proba"][st][n] = np.nan
+                    search_P_pick = False
+            if search_P_pick:
+                if prior_knowledge is None:
+                    # take only the highest probability trigger
+                    best_P_trigger = picks["P_proba"][st][n].argmax()
+                else:
+                    # use a priori picks
+                    tapered_P_probas = (
+                            picks["P_proba"][st][n]
+                            *
+                            np.exp(
+                                -(picks["P_picks"][st][n] - prior_P)**2/(2.*search_win_samp**2)
+                                )
+                            )
+                    best_P_trigger = tapered_P_probas.argmax()
+                picks["P_picks"][st][n] = picks["P_picks"][st][n][best_P_trigger]
+                picks["P_proba"][st][n] = picks["P_proba"][st][n][best_P_trigger]
+        # convert picks to float to allow NaNs
+        picks["P_picks"][st] = np.float32(picks["P_picks"][st])
+        picks["S_picks"][st] = np.float32(picks["S_picks"][st])
+        picks["P_proba"][st] = np.float32(picks["P_proba"][st])
+        picks["S_proba"][st] = np.float32(picks["S_proba"][st])
+    return picks
 
 
 def get_best_picks(picks, buffer_length=50):
