@@ -327,14 +327,15 @@ def get_picks(picks, buffer_length=50, prior_knowledge=None, search_win_samp=100
                 picks["S_picks"][st][n] = picks["S_picks"][st][n][best_S_trigger]
                 picks["S_proba"][st][n] = picks["S_proba"][st][n][best_S_trigger]
                 # update P picks: keep only those that are before the best S pick
-                valid_P_picks = picks["P_picks"][st][n] < picks["S_picks"][st][n]
-                picks["P_picks"][st][n] = picks["P_picks"][st][n][valid_P_picks]
-                picks["P_proba"][st][n] = picks["P_proba"][st][n][valid_P_picks]
-                if len(picks["P_picks"][st][n]) == 0:
-                    # if no valid P pick: fill in with nan
-                    picks["P_picks"][st][n] = np.nan
-                    picks["P_proba"][st][n] = np.nan
-                    search_P_pick = False
+                if search_P_pick:
+                    valid_P_picks = picks["P_picks"][st][n] < picks["S_picks"][st][n]
+                    picks["P_picks"][st][n] = picks["P_picks"][st][n][valid_P_picks]
+                    picks["P_proba"][st][n] = picks["P_proba"][st][n][valid_P_picks]
+                    if len(picks["P_picks"][st][n]) == 0:
+                        # if no valid P pick: fill in with nan
+                        picks["P_picks"][st][n] = np.nan
+                        picks["P_proba"][st][n] = np.nan
+                        search_P_pick = False
             if search_P_pick:
                 if prior_knowledge is None:
                     # take only the highest probability trigger
